@@ -1,0 +1,5 @@
+node_modules
+src/privateKey.ts
+/src/privateKey.ts
+./src/privateKey.ts
+.env
