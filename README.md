@@ -48,6 +48,8 @@ Change what the bot tweets by editing `private async tweet(...)` in `src/whaleBo
 
 ## Notes
 
+The bot account was flagged on 5/5/22 for "automated activity" so I had to do some captchas and verify phone number again. I was using a threshold of \$10,000 and tweeting several times an hour, so with a higher threshold it should be fine.
+
 Getting Elevated Twitter access was instant for me so I did that to simplify Twitter integration, but it's possible to do it on Essential access.
 
 On my machine, each loop iteration takes roughly 3-4s with a 2s sleep interval, so it should be processing every fill with no problems.
