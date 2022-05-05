@@ -64,13 +64,14 @@ export default class WhaleBot {
             let amt = (event["side"] == "buy") ? event["nativeQuantityPaid"] : event["nativeQuantityReleased"];
             let usd = amt/(10**6); // pretty sure this works for all markets but not certain
             let side = (event["side"] == "buy") ? "Bought" : "Sold";
-            let control = event["control"].toBase58();
-            let controlKey = new PublicKey(control);
-            let controlAcc = await Control.load(this.program, controlKey);
-            let whaleKey = controlAcc.data.authority.toBase58()
 
             this.perpOrdersSeen.add(event["orderId"].toString());
+
             if(usd > WHALE_THRESHOLD) {
+                let control = event["control"].toBase58();
+                let controlKey = new PublicKey(control);
+                let controlAcc = await Control.load(this.program, controlKey);
+                let whaleKey = controlAcc.data.authority.toBase58()
                 log.info(`Whale spotted: ${side} ${event["size"]} ${symbol} for $${usd} at $${event["price"]}, user key: ${whaleKey}`);
                 if(this.shouldTweet) {
                     await this.tweet(side, event["size"], symbol, usd, event["price"], whaleKey, control);
