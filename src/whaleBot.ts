@@ -69,6 +69,7 @@ export default class WhaleBot {
             let controlAcc = await Control.load(this.program, controlKey);
             let whaleKey = controlAcc.data.authority.toBase58()
 
+            this.perpOrdersSeen.add(event["orderId"].toString());
             if(usd > WHALE_THRESHOLD) {
                 log.info(`Whale spotted: ${side} ${event["size"]} ${symbol} for $${usd} at $${event["price"]}, user key: ${whaleKey}`);
                 if(this.shouldTweet) {
@@ -76,7 +77,6 @@ export default class WhaleBot {
                 }
             }
 
-            this.perpOrdersSeen.add(event["orderId"].toString());
         }
     }
 
