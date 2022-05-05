@@ -49,10 +49,11 @@ export default class WhaleBot {
 
     private async tweet(side, size, symbol, spent, price, key, control) {
         let spentRound = spent.toFixed(2);
+        spentRound = spentRound.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         let content = `🚨🚨 WHALE SPOTTED 🚨🚨\n${side} ${size} #${symbol} ($${spentRound}) at $${price}\nsolscan.io/address/${key}`;
         T.post('statuses/update', { status: content }, function(err, data, response) {
             if(err != undefined){
-                log.error(err);
+                log.warn(`Error tweeting: ${err["message"]} (${err["code"]})`);
             }
         })
     }
@@ -90,6 +91,7 @@ export default class WhaleBot {
     }
 
     async loop() {
+        log.info(`Threshold: ${WHALE_THRESHOLD}, Sleep: ${SLEEP_DURATION} ms`);
         this.state = await State.load(this.program, ZO_MAINNET_STATE_KEY);
         for(let symbol in this.state.markets){
             this.perpSymbols.push(symbol);
