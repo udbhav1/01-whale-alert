@@ -52,4 +52,4 @@ Getting Elevated Twitter access was instant for me so I did that to simplify Twi
 
 On my machine, each loop iteration takes roughly 3-4s with a 2s sleep interval, so it should be processing every fill with no problems.
 
-One optimization might be to check on the first iteration whether the fills in the event queue actually took place before the bot started and just happened to stick around. The possible failure case here is if the whale bot happens to process those fills, then fail and restart, then process and tweet again for those fills. The Twitter API I'm using disallows duplicate recent tweets, so that case hasn't been a problem for me. The bot has also never failed for me, so I didn't bother patching it.
+One optimization might be to check on the first iteration whether the fills in the event queue actually took place before the bot started and just happened to stick around. The possible failure case here is if the whale bot happens to process those fills, then fail and restart, then process and tweet again for those fills. But the Twitter API I'm using disallows duplicate recent tweets, so that case hasn't been a problem for me.

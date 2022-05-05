@@ -73,7 +73,7 @@ export default class WhaleBot {
             if(usd > WHALE_THRESHOLD) {
                 log.info(`Whale spotted: ${side} ${event["size"]} ${symbol} for $${usd} at $${event["price"]}, user key: ${whaleKey}`);
                 if(this.shouldTweet) {
-                    this.tweet(side, event["size"], symbol, usd, event["price"], whaleKey, control);
+                    await this.tweet(side, event["size"], symbol, usd, event["price"], whaleKey, control);
                 }
             }
 
@@ -100,11 +100,11 @@ export default class WhaleBot {
             for(let i = 0; i < this.perpMarkets.length; i++) {
                 await this.getFills(this.perpMarkets[i], this.perpSymbols[i]);
             }
-            this.seen = 0;
-            this.valid = 0;
             let endTime = Date.now();
             let delta = (endTime - startTime)/1000;
             log.info(`[parsed ${this.valid} new market orders of ${this.seen} fills in ${delta} seconds]`);
+            this.seen = 0;
+            this.valid = 0;
             await sleep(SLEEP_DURATION);
         }
     }
