@@ -19,6 +19,7 @@
       "noUncheckedIndexedAccess": true,
       "noFallthroughCasesInSwitch": true,
       "allowUnreachableCode": false,
+      "strictPropertyInitialization": false,
       "composite": true,
       "rootDir": "src/"
     },

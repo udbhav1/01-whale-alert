@@ -1,5 +1,6 @@
 node_modules
-src/privateKey.ts
-/src/privateKey.ts
-./src/privateKey.ts
+src/private.ts
+/src/private.ts
+./src/private.ts
 .env
+todo.txt

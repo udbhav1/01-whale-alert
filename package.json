@@ -11,10 +11,10 @@
   "dependencies": {
     "@zero_one/client": "^0.8.6",
     "bunyan": "^1.8.15",
+    "twit": "^2.2.11",
     "typescript": "^4.6.4"
   },
   "scripts": {
-    "start": "ts-node src/runWhaleBot.ts | bunyan",
-    "clean": "rm -rf dist build"
+    "start": "ts-node src/runWhaleBot.ts | bunyan"
   }
 }

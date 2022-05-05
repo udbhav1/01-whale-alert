@@ -1,64 +1,112 @@
 import {Program} from '@project-serum/anchor';
-import {Connection, PublicKey, SYSVAR_RENT_PUBKEY, Transaction} from '@solana/web3.js';
-import BN from 'bn.js';
+import {PublicKey} from '@solana/web3.js';
 import {
-    Cluster,
-    Margin,
-    MarginsCluster,
-    MarketInfo,
     sleep,
-    USDC_DECIMALS,
-    USDC_DEVNET_MINT_ADDRESS,
-    USDC_MAINNET_MINT_ADDRESS,
+    Cluster,
+    State,
     Zo,
-    ZO_DEX_DEVNET_PROGRAM_ID,
-    ZO_DEX_MAINNET_PROGRAM_ID,
-    ZO_FUTURE_TAKER_FEE,
-    ZO_OPTION_TAKER_FEE,
-    ZO_SQUARE_TAKER_FEE,
-    ZoMarket
-} from '@zero_one/client'
+    ZO_MAINNET_STATE_KEY,
+    ZoMarket,
+    Control,
+} from "@zero_one/client";
 import {
     WHALE_THRESHOLD, 
     SLEEP_DURATION
-} from './config'
-import bunyan from 'bunyan'
+} from './config';
+import {
+    TWITTER_API_KEY,
+    TWITTER_API_SECRET,
+    TWITTER_ACCESS,
+    TWITTER_ACCESS_SECRET,
+} from './private';
+import bunyan from 'bunyan';
 
 const log = bunyan.createLogger({name: 'whale-bot'});
 
+var Twit = require('twit');
+
+const T = new Twit({
+    consumer_key: TWITTER_API_KEY,
+    consumer_secret: TWITTER_API_SECRET,
+    access_token: TWITTER_ACCESS,
+    access_token_secret: TWITTER_ACCESS_SECRET,
+})
+
 export default class WhaleBot {
 
-    constructor(private readonly cluster: Cluster, private readonly connection: Connection) {
+    private shouldTweet: boolean = true;
+
+    constructor(private readonly cluster: Cluster, private readonly program: Program<Zo>) {
     }
 
-    private startTimestamp = Date.now();
-    private botActive = true;
+    private botActive: boolean = true;
+    private state: State;
+    private perpSymbols: string[] = [];
+    private perpMarkets: ZoMarket[] = [];
+    private perpOrdersSeen: Set<string> = new Set();
+    private seen: number = 0; // fills in the queue (events stick around for a while in the queue)
+    private valid: number = 0; // new market orders processed this loop iter
 
-    private async scanOrderbook() {
-        console.log(this.startTimestamp);
-        await sleep(5000);
+    private async tweet(side, size, symbol, spent, price, key, control) {
+        let spentRound = spent.toFixed(2);
+        let content = `🚨🚨 WHALE SPOTTED 🚨🚨\n${side} ${size} #${symbol} ($${spentRound}) at $${price}\nsolscan.io/address/${key}`;
+        T.post('statuses/update', { status: content }, function(err, data, response) {
+            if(err != undefined){
+                log.error(err);
+            }
+        })
     }
 
-    async start() {
-        while(this.botActive) {
-            log.info('[scanning orderbook]');
-            await this.scanOrderbook();
-            log.info('[sleeping]');
-            await sleep(SLEEP_DURATION);
+    private async parseEvent(event, symbol) {
+        this.seen += 1;
+        if(!this.perpOrdersSeen.has(event["orderId"].toString()) && !event["eventFlags"]["maker"]) {
+            this.valid += 1;
+            let amt = (event["side"] == "buy") ? event["nativeQuantityPaid"] : event["nativeQuantityReleased"];
+            let usd = amt/(10**6); // pretty sure this works for all markets but not certain
+            let side = (event["side"] == "buy") ? "Bought" : "Sold";
+            let control = event["control"].toBase58();
+            let controlKey = new PublicKey(control);
+            let controlAcc = await Control.load(this.program, controlKey);
+            let whaleKey = controlAcc.data.authority.toBase58()
+
+            if(usd > WHALE_THRESHOLD) {
+                log.info(`Whale spotted: ${side} ${event["size"]} ${symbol} for $${usd} at $${event["price"]}, user key: ${whaleKey}`);
+                if(this.shouldTweet) {
+                    this.tweet(side, event["size"], symbol, usd, event["price"], whaleKey, control);
+                }
+            }
+
+            this.perpOrdersSeen.add(event["orderId"].toString());
         }
     }
 
-    // async launch() {
-    //     log.info('[loading liquidator]');
-    //     this.marginsCluster = new MarginsCluster(this.program, this.cluster);
-    //     await this.marginsCluster.launch()
-    //     log.info('[loaded margins cluster]');
-    //     this.liquidatorMarginKey = (await Margin.getMarginKey(this.state, this.program.provider.wallet.publicKey, this.program))[0].toString();
-    //     this.swapper = new Swapper(this.state, this.program, this.liquidatorMargin);
-    //     this.listen();
-    //     log.info('[started liquidation cycle]');
-    //     this.findLiquidatableAccountsAndLiquidate();
-    //     await this.liquidationCycle();
-    // }
+    private async getFills(market, symbol) {
+        // let events = await market.loadEventQueue(this.program.provider.connection);
+        let events = await market.loadFills(this.program.provider.connection);
+        for(let event of events){
+            await this.parseEvent(event, symbol);
+        }
+    }
+
+    async loop() {
+        this.state = await State.load(this.program, ZO_MAINNET_STATE_KEY);
+        for(let symbol in this.state.markets){
+            this.perpSymbols.push(symbol);
+            let market = await this.state.getMarketBySymbol(symbol);
+            this.perpMarkets.push(market);
+        }
+        while(this.botActive) {
+            let startTime = Date.now();
+            for(let i = 0; i < this.perpMarkets.length; i++) {
+                await this.getFills(this.perpMarkets[i], this.perpSymbols[i]);
+            }
+            this.seen = 0;
+            this.valid = 0;
+            let endTime = Date.now();
+            let delta = (endTime - startTime)/1000;
+            log.info(`[parsed ${this.valid} new market orders of ${this.seen} fills in ${delta} seconds]`);
+            await sleep(SLEEP_DURATION);
+        }
+    }
 
 }
